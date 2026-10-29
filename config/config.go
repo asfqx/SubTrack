@@ -2,23 +2,22 @@ package config
 
 import (
 	"fmt"
-	
+
+	"github.com/asfqx/SubTrack/pkg/httpserver"
+	"github.com/asfqx/SubTrack/pkg/logger"
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 )
 
 type App struct {
-	Name string `envconfig:"APP_NAME"    required:"true"`
+	Name    string `envconfig:"APP_NAME"    required:"true"`
 	Version string `envconfig:"APP_VERSION" required:"true"`
 }
 
 type Config struct {
-	App      App
-	HTTP     httpserver.Config
-	Logger   logger.Config
-	OTEL     otel.Config
-	Postgres postgres.Config
-	Redis    redis.Config
+	App        App
+	Logger     logger.Config
+	HttpServer httpserver.Config
 }
 
 func New() (Config, error) {
