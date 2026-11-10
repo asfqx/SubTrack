@@ -5,6 +5,7 @@ import (
 
 	"github.com/asfqx/SubTrack/pkg/httpserver"
 	"github.com/asfqx/SubTrack/pkg/logger"
+	"github.com/asfqx/SubTrack/pkg/pgPool"
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 )
@@ -18,6 +19,7 @@ type Config struct {
 	App        App
 	Logger     logger.Config
 	HttpServer httpserver.Config
+	Postgres   pgPool.Config
 }
 
 func New() (Config, error) {
