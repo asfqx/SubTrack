@@ -24,7 +24,10 @@ func New(db *postgres.Postgres) *repository {
 	}
 }
 
-func (r *repository) GetByUUID(ctx context.Context, uuid uuid.UUID) (domain.Subscription, error) {
+func (r *repository) GetByUUID(
+	ctx context.Context,
+	uuid uuid.UUID,
+) (domain.Subscription, error) {
 	query := `
 		SELECT 
 			uuid, 
@@ -69,21 +72,24 @@ func (r *repository) GetByUUID(ctx context.Context, uuid uuid.UUID) (domain.Subs
 	return sub, nil
 }
 
-func (r *repository) GetByUserUUID(ctx context.Context, userUUID uuid.UUID) ([]domain.Subscription, error) {
+func (r *repository) GetByUserUUID(
+	ctx context.Context,
+	userUUID uuid.UUID,
+) ([]domain.Subscription, error) {
 	query := `
 		SELECT 
 			uuid,
 			name,
 			description,
 			amount,
-			currency
+			currency,
 			next_billing_at,
 			started_at,
 			canceled_at,
 			status,
 			user_uuid,
 			created_at,
-			update_at
+			updated_at
 		FROM subscriptions
 		WHERE user_uuid = $1
 	`
@@ -133,13 +139,14 @@ func (r *repository) Create(ctx context.Context, sub *domain.Subscription) error
 			name,
 			description,
 			amount,
-			currency
+			currency,
 			next_billing_at,
 			started_at,
 			status,
 			user_uuid
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING uuid, created_at, updated_at
 	`
 
 	err := r.db.Pool().QueryRow(
@@ -173,38 +180,64 @@ func (r *repository) Create(ctx context.Context, sub *domain.Subscription) error
 	return nil
 }
 
-func (r *repository) Update(ctx context.Context, sub domain.Subscription) error {
+func (r *repository) Update(
+	ctx context.Context,
+	params domain.UpdateSubscriptionParams,
+	subUUID uuid.UUID,
+) error {
 	query := `
 		UPDATE subscriptions
 		SET 
 			name = $1,
-			description = $2 
+			description = $2,
 			amount = $3,
 			currency = $4,
 			next_billing_at = $5,
 			started_at = $6,
 			updated_at = NOW()
-		WHERE uuid = &7
+		WHERE uuid = $7
 	`
 
 	tag, err := r.db.Pool().Exec(
 		ctx,
 		query,
-		sub.Name,
-		sub.Description,
-		sub.Amount,
-		sub.Currency,
-		sub.NextBillingAt,
-		sub.StartedAt,
-		sub.UUID,
+		params.Name,
+		params.Description,
+		params.Amount,
+		params.Currency,
+		params.NextBillingAt,
+		params.StartedAt,
+		subUUID,
 	)
+	if err != nil {
+		return fmt.Errorf("update subscription: %w", err)
+	}
 
 	if tag.RowsAffected() == 0 {
 		return errs.ErrNoRows
 	}
 
+	return nil
+}
+
+func (r *repository) UpdateStatus(
+	ctx context.Context,
+	status domain.SubscriptionStatus,
+	subUUID uuid.UUID,
+) error {
+	query := `
+		UPDATE subscriptions
+		SET status = $1, updated_at = NOW()
+		WHERE uuid = $2
+	`
+
+	tag, err := r.db.Pool().Exec(ctx, query, status, subUUID)
 	if err != nil {
 		return fmt.Errorf("update subscription: %w", err)
+	}
+
+	if tag.RowsAffected() == 0 {
+		return errs.ErrNoRows
 	}
 
 	return nil
@@ -217,14 +250,30 @@ func (r *repository) Delete(ctx context.Context, subUUID uuid.UUID) error {
 	`
 
 	tag, err := r.db.Pool().Exec(ctx, query, subUUID)
+	if err != nil {
+		return fmt.Errorf("delete subscription: %w", err)
+	}
 
 	if tag.RowsAffected() == 0 {
 		return errs.ErrNoRows
 	}
 
+	return nil
+}
+
+func (r *repository) CountByUserUUID(ctx context.Context, userUUID uuid.UUID) (int64, error) {
+	var count int64
+
+	query := `
+		SELECT COUNT(*)
+		FROM subscriptions
+		WHERE user_uuid = $1
+	`
+
+	err := r.db.Pool().QueryRow(ctx, query, userUUID).Scan(&count)
 	if err != nil {
-		return fmt.Errorf("delete subscription: %w", err)
+		return 0, fmt.Errorf("count user subscriptions: %w", err)
 	}
 
-	return nil
+	return count, nil
 }

@@ -33,12 +33,21 @@ type CreateSubscriptionParams struct {
 	UserUUID      uuid.UUID
 }
 
+type UpdateSubscriptionParams struct {
+	Name          string
+	Description   string
+	Amount        string
+	Currency      Currency
+	NextBillingAt int64
+	StartedAt     int64
+}
+
 func NewSubscription(params CreateSubscriptionParams) (Subscription, error) {
 	now := time.Now()
 	started := time.UnixMilli(params.StartedAt)
 
 	if started.After(now) {
-		return Subscription{}, errs.ErrInvalidStatedAt
+		return Subscription{}, errs.ErrInvalidStartedAt
 	}
 
 	if len(params.Name) > maxNameLen {
